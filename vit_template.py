@@ -276,7 +276,12 @@ class MultiHeadSelfAttention(nn.Module):
 
         # TODO 1.2 ── Create the four linear layers and the dropout layer
         #   described in the docstring above.
-        raise NotImplementedError("TODO 1.2: implement MultiHeadSelfAttention.__init__")
+        self.q_proj = nn.Linear(embed_dim,embed_dim,bias=True)
+        self.k_proj = nn.Linear(embed_dim,embed_dim,bias=True)
+        self.v_proj = nn.Linear(embed_dim,embed_dim,bias=True)
+        self.out_proj = nn.Linear(embed_dim,embed_dim,bias=True)
+        self.attn_drop = nn.Dropout(dropout)
+        # raise NotImplementedError("TODO 1.2: implement MultiHeadSelfAttention.__init__")
 
     def forward(
         self, x: torch.Tensor
@@ -289,6 +294,31 @@ class MultiHeadSelfAttention(nn.Module):
         #     torch.matmul  or  the @ operator
         #     F.softmax(scores, dim=-1)
         #     tensor.transpose(1, 2).contiguous().reshape(B, T, self.embed_dim)
+
+        q_proj = self.q_proj(x)
+        k_proj = self.k_proj(x)
+        v_proj = self.v_proj(x)
+
+        B,T = x.shape[:2]
+
+        reshape_q = q_proj.reshape(B, T, self.num_heads, self.head_dim)
+        reshape_k = k_proj.reshape(B, T, self.num_heads, self.head_dim)
+        reshape_v = v_proj.reshape(B, T, self.num_heads, self.head_dim)
+
+        transpose_q = reshape_q.transpose(1,2)
+        transpose_k = reshape_k.transpose(1,2)
+        transpose_v = reshape_v.transpose(1,2)
+
+        scores = transpose_q @ transpose_k.transpose(-2,-1) * self.scale
+        attn_weights = F.softmax(scores, dim=-1)
+        attn_weights = self.attn_drop(attn_weights)
+
+        context = attn_weights @ transpose_v
+        context = context.transpose(1,2).contiguous().reshape(B,T,self.embed_dim)
+
+        out = self.out_proj(context)
+
+        return (out,attn_weights)
         raise NotImplementedError("TODO 1.2: implement MultiHeadSelfAttention.forward")
 
 
