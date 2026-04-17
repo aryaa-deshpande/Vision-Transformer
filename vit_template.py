@@ -195,7 +195,8 @@ class PatchEmbedding(nn.Module):
         #   • uses kernel_size = patch_size
         #   • uses stride     = patch_size
         #   • has no padding (padding=0)
-        raise NotImplementedError("TODO 1.1: implement PatchEmbedding.__init__")
+        self.proj = nn.Conv2d(in_chans,embed_dim,kernel_size=patch_size,stride=patch_size, padding=0)
+        # raise NotImplementedError("TODO 1.1: implement PatchEmbedding.__init__")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # TODO 1.1 ── Apply self.proj to x, then reshape the output from
@@ -204,8 +205,9 @@ class PatchEmbedding(nn.Module):
         #
         #   Hint: after the conv you have shape (B, D, G, G).
         #   Call .flatten(2) to get (B, D, N), then .transpose(1, 2) for (B, N, D).
-        raise NotImplementedError("TODO 1.1: implement PatchEmbedding.forward")
-
+        output = self.proj(x).flatten(2).transpose(1,2)
+        return output
+        # raise NotImplementedError("TODO 1.1: implement PatchEmbedding.forward")
 
 # ---------------------------------------------------------------------------
 
