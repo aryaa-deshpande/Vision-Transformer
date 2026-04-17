@@ -37,8 +37,13 @@ Instructions
 # =============================================================================
 # >>>  SET YOUR STUDENT ID HERE  <<<
 # =============================================================================
-STUDENT_ID = 0          # TODO: replace 0 with your numeric student ID
+# STUDENT_ID = 0          # TODO: replace 0 with your numeric student ID
 # =============================================================================
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
+STUDENT_ID = int(os.getenv("STUDENT_ID", 0))
 
 import argparse
 import json
