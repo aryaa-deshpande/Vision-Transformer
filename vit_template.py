@@ -1062,7 +1062,37 @@ def compute_pos_embed_correlation(
     • num_pairs = N * (N - 1) // 2
     """
     # TODO 3.2 -- Implement positional embedding correlation.
-    raise NotImplementedError("TODO 3.2: implement compute_pos_embed_correlation")
+    model = _load_baseline_checkpoint(checkpoint_path)
+    pos_embed = model.pos_embed[0,1:,:]
+    normed = F.normalize(pos_embed, dim=-1)
+    S = normed @ normed.T
+
+    N = normed.shape[0]
+    G = 32// model.config["patch_size"]
+
+    coords = []
+    for k in range(N):
+        row = k //G
+        col = k%G
+        coords.append([row,col])
+    coords = torch.tensor(coords, dtype=torch.float32)
+    diff = coords[:,None,:] - coords[None,:,:]
+    E = diff.norm(dim=-1)
+
+    upper_tri = torch.triu_indices(N,N,offset=1)
+    s_vals = S[upper_tri[0],upper_tri[1]]
+    e_vals = E[upper_tri[0],upper_tri[1]]
+    pearson_r = np.corrcoef(s_vals.detach().numpy(), e_vals.detach().numpy())[0,1]
+    num_pairs = N*(N-1) //2
+    result = {"pearson_r": pearson_r, "num_pairs": num_pairs}
+
+    _save_json(result,output_path)
+
+    return result
+
+
+
+    # raise NotImplementedError("TODO 3.2: implement compute_pos_embed_correlation")
 
 
 def compute_per_class_accuracy(
