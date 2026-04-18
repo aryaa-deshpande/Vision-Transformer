@@ -405,9 +405,9 @@ class TransformerBlock(nn.Module):
 
         normed = self.norm1(x)
         attn_out, attn_weights = self.attn(normed)
-        x += attn_out
+        x = x + attn_out
 
-        x += self.mlp(self.norm2(x))
+        x = x + self.mlp(self.norm2(x))
 
         return (x,attn_weights)
         # raise NotImplementedError("TODO 1.3: implement TransformerBlock.forward")
@@ -528,7 +528,7 @@ class VisionTransformer(nn.Module):
         B = x.shape[0]
         cls_tokens = self.cls_token.expand(B,-1,-1)
         x = torch.cat([cls_tokens,x],dim=1)
-        x += self.pos_embed
+        x = x + self.pos_embed
 
         attn_list = []
         for block in self.blocks:
@@ -732,7 +732,74 @@ def train_model(
     • Create checkpoint_dir if it doesn't exist: os.makedirs(..., exist_ok=True)
     """
     # TODO 1.6 ── Implement the training loop.
-    raise NotImplementedError("TODO 1.6: implement train_model")
+    train_loader = DataLoader(train_subset,batch_size=config["batch_size"],shuffle=True)
+    test_loader = DataLoader(test_dataset,batch_size=256, shuffle=False )
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config["lr"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,T_max=config["epochs"])
+
+    history = []
+    
+    for epoch in range(1, config["epochs"]+1):
+        start_time = time.time()
+        model.train()
+        train_loss = 0.0
+        for images, labels in train_loader:
+            optimizer.zero_grad()
+            logits, _ = model(images)
+            loss = criterion(logits,labels)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+        scheduler.step()
+
+        avg_train_loss = train_loss / len(train_loader)
+
+        model.eval()
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for images, labels in test_loader:
+                logits, _ = model(images)
+                predicted = logits.argmax(dim=-1)
+
+                correct += (predicted == labels).sum().item()
+                total += labels.size(0)
+        
+        val_accuracy = correct / total
+        epoch_time_sec = time.time() - start_time
+
+        epoch_log = {"epoch": epoch, "train_loss": avg_train_loss, "val_accuracy": val_accuracy, "epoch_time_sec": epoch_time_sec}
+        history.append(epoch_log)
+
+        if epoch in checkpoint_epochs:
+            torch.save({
+            "model_state_dict": model.state_dict(),
+            "config":           model.config,
+            "epoch":            epoch,
+            "student_id":       STUDENT_ID,
+        }, f"{checkpoint_dir}/baseline_epoch_{epoch}.pt")
+            
+        print(f"Epoch {epoch}/{config['epochs']} | Loss: {avg_train_loss:.4f} | Val Acc: {val_accuracy:.4f} | Time: {epoch_time_sec:.1f}s")
+            
+    log = {
+        "student_id":         STUDENT_ID,
+        "seed":               get_seed(),
+        "config":             config,          
+        "history":            history,
+        "final_val_accuracy": history[-1]["val_accuracy"],          
+        "total_params":       sum(p.numel() for p in model.parameters() if p.requires_grad)             
+    }
+
+    if log_path:
+        _save_json(log,log_path)
+        
+
+        
+
+    # raise NotImplementedError("TODO 1.6: implement train_model")
 
 
 # =============================================================================
