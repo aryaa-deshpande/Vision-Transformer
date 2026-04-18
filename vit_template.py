@@ -1135,7 +1135,51 @@ def compute_per_class_accuracy(
       Diagonal entries are correct predictions; off-diagonal are confusions.
     """
     # TODO 3.3 -- Implement per-class accuracy and confusion analysis.
-    raise NotImplementedError("TODO 3.3: implement compute_per_class_accuracy")
+
+    model = _load_baseline_checkpoint(checkpoint_path)
+    _, test_data = get_cifar10_subset()
+    test_loader = DataLoader(test_data,batch_size=256, shuffle=False)
+
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for images, labels in test_loader:
+            logits, _ = model(images)
+            predicted = logits.argmax(dim=-1)
+
+            all_preds.append(predicted.cpu())
+            all_labels.append(labels.cpu())
+
+    all_preds = torch.cat(all_preds)
+    all_labels = torch.cat(all_labels)
+
+    conf = torch.zeros(10,10, dtype=torch.long)
+    for t,p in zip(all_labels, all_preds):
+        conf[t,p] += 1
+
+    class_accuracies = {}
+    for c in range(10):
+        class_accuracies[str(c)] = (conf[c,c] / conf[c].sum()).item()
+
+    confusions = []
+    for t in range(10):
+        for p in range(10):
+            if t != p:
+                confusions.append([t, p, conf[t, p].item()])
+
+    top3_confusions = sorted(confusions, key=lambda x: x[2], reverse=True)[:3]
+
+    result = {"class_accuracies": class_accuracies, "top3_confusions": top3_confusions}
+
+    _save_json(result, output_path)
+
+    return result
+
+
+   
+
+
+    # raise NotImplementedError("TODO 3.3: implement compute_per_class_accuracy")
 
 
 def compute_attention_distance(
