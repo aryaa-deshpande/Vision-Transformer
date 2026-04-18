@@ -988,7 +988,31 @@ def compute_attention_entropy(
     • os.makedirs(os.path.dirname(output_path), exist_ok=True) before writing.
     """
     # TODO 3.1 -- Implement attention entropy computation.
-    raise NotImplementedError("TODO 3.1: implement compute_attention_entropy")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    model = _load_baseline_checkpoint(checkpoint_path)
+    _, test_dataset= get_cifar10_subset()
+    test_loader = DataLoader(test_dataset,batch_size=256,shuffle=False )
+
+    cls_attentions = [[] for _ in range(len(model.blocks))]
+    with torch.no_grad():
+        for images, labels in test_loader:
+            logits, attn_list = model(images)
+            for l in range(len(model.blocks)):
+                cls_attentions[l].append(attn_list[l][:, :, 0, :])
+
+    result = {}
+    for l in range(len(model.blocks)):
+        cls_attentions[l] = torch.cat(cls_attentions[l], dim=0)
+        avg = cls_attentions[l].mean(dim=0).mean(dim=0)
+        clamped = torch.clamp(avg,1e-9,1)
+        entropy = -(clamped * torch.log2(clamped)).sum()
+        result[f"layer_{l}"] = entropy.item()
+
+    _save_json(result,output_path)
+
+    return result
+
+    # raise NotImplementedError("TODO 3.1: implement compute_attention_entropy")
 
 
 def compute_pos_embed_correlation(
