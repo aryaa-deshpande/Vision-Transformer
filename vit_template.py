@@ -1230,7 +1230,52 @@ def compute_attention_distance(
       Then .mean(dim=-1) → (B, h), then .mean() for the scalar.
     """
     # TODO 3.4 -- Implement mean attention distance computation.
-    raise NotImplementedError("TODO 3.4: implement compute_attention_distance")
+
+    model = _load_baseline_checkpoint(checkpoint_path)
+    _, test_data = get_cifar10_subset()
+    test_loader = DataLoader(test_data,batch_size=256, shuffle=False)
+
+    
+    N = model.patch_embed.num_patches
+    G = 32 // model.config["patch_size"]
+
+    coords = []
+    for k in range(N):
+        row = k // G
+        col = k%G
+        coords.append([row,col])
+
+    coords = torch.tensor(coords, dtype=torch.float32)
+    diff = coords[:,None,:] - coords[None,:,:]
+    D_grid = diff.norm(dim=-1)
+
+    layer_distances = {f"layer_{l}": 0.0 for l in range(len(model.blocks))}
+    total_batches = 0
+
+    with torch.no_grad():
+        for images, labels in test_loader:
+            logits, attn_list = model(images)
+            for l in range(len(model.blocks)):
+                A_patch = attn_list[l][:, :, 1:, 1:]
+                A_patch = A_patch / A_patch.sum(dim=-1, keepdim=True).clamp(min=1e-9)
+                mean_dist = (A_patch * D_grid).sum(dim=-1).mean().item()
+                layer_distances[f"layer_{l}"] += mean_dist
+            total_batches += 1
+    
+    result = []
+    for k,v in layer_distances.items():
+        result[k] = v/total_batches
+
+    _save_json(result,output_path)
+
+    return result
+    
+
+
+    
+
+
+    # raise NotImplementedError("TODO 3.4: implement compute_attention_distance")
 
 
 # =============================================================================
