@@ -1262,7 +1262,7 @@ def compute_attention_distance(
                 layer_distances[f"layer_{l}"] += mean_dist
             total_batches += 1
     
-    result = []
+    result = {}
     for k,v in layer_distances.items():
         result[k] = v/total_batches
 
